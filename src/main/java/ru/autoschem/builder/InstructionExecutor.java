@@ -27,12 +27,11 @@ public final class InstructionExecutor {
         BlockPos target = origin.add(instruction.x(), instruction.y(), instruction.z());
         
         // SafetyAnalyzer check before execution
-        if (!SafetyAnalyzer.isSafe(client, target)) {
+        if (!ru.autoschem.safety.SafetyAnalyzer.isSafe(client, target)) {
             client.player.sendMessage(
                     net.minecraft.text.Text.literal("[AutoSchem] Опасность! Обхожу препятствие.")
                             .formatted(net.minecraft.util.Formatting.RED),
                     false);
-            // Simple obstacle avoidance: move slightly away or skip
             return;
         }
 
@@ -54,8 +53,6 @@ public final class InstructionExecutor {
             ));
         } else if (instruction.action() == Instruction.Action.PLACE) {
             // Place block using PlayerInteractBlockC2SPacket
-            BlockState state = client.world.getBlockState(target);
-            // For placing, we interact with the block adjacent or target position
             // Minecraft 1.21.x uses PlayerInteractBlockC2SPacket
             BlockHitResult hit = new DirectionFacingBlockHitResult(
                     new Vec3d(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5),

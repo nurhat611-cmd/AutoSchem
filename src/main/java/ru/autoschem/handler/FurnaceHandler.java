@@ -2,12 +2,9 @@ package ru.autoschem.handler;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.FurnaceScreenHandler;
 import net.minecraft.inventory.ScreenHandler;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import ru.autoschem.movement.MovementHandler;
