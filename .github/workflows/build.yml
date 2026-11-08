@@ -22,7 +22,15 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          ./gradlew build --console=plain 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          if ./gradlew --version > "$RUNNER_TEMP/gradle-wrapper.log" 2>&1; then
+            ./gradlew build --console=plain 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          elif command -v gradle > /dev/null 2>&1; then
+            echo "::warning::Gradle Wrapper could not be downloaded; using the runner's preinstalled Gradle."
+            { gradle --version; gradle build --console=plain; } 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          else
+            cp "$RUNNER_TEMP/gradle-wrapper.log" "$RUNNER_TEMP/gradle-build.log"
+            exit 1
+          fi
       - name: Report build failure
         if: failure()
         shell: bash
