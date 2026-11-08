@@ -2,11 +2,17 @@ package ru.autoschem.handler;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.inventory.FurnaceScreenHandler;
-import net.minecraft.inventory.ScreenHandler;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.screen.FurnaceScreenHandler;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.BlockRayTraceResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import ru.autoschem.movement.MovementHandler;
 
 import java.util.List;
@@ -37,7 +43,16 @@ public final class FurnaceHandler {
         // Open furnace screen handler
         // In 1.21.x, opening is handled via interaction packet or client-side screen handler open
         // We simulate interaction to open
-        client.interactionManager.interactBlock(client.player, client.player.getMainHand(), furnacePos, net.minecraft.util.hit.Direction.UP, new net.minecraft.util.math.Vec3d(0.5, 0.5, 0.5));
+        BlockHitResult hit = new BlockRayTraceResult(
+                new Vec3d(furnacePos.getX() + 0.5, furnacePos.getY() + 0.5, furnacePos.getZ() + 0.5),
+                Direction.UP,
+                furnacePos,
+                false
+        );
+        client.getNetworkHandler().sendPacket(new PlayerInteractBlockC2SPacket(
+                Hand.MAIN_HAND,
+                hit
+        ));
 
         // Wait briefly for screen handler to open (handled in tick/update)
         ScreenHandler screen = client.player.currentScreenHandler;
