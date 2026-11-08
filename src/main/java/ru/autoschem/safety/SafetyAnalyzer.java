@@ -20,7 +20,7 @@ public final class SafetyAnalyzer {
         
         // Check void/empty below
         BlockPos below = pos.down();
-        if (below.getY() < 0 || client.world.getBlockState(below).isAir() && client.world.getBlockState(below.down()).isAir()) {
+        if (below.getY() < 0 || (client.world.getBlockState(below).isAir() && client.world.getBlockState(below.down()).isAir())) {
             // Consider void or dangerous drop
             return false;
         }
