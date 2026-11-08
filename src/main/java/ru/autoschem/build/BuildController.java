@@ -15,7 +15,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.PlayerActionC2SPacket;
+import net.minecraft.client.network.PlayerInteractBlockC2SPacket;
 import net.minecraft.command.argument.BlockArgumentParser;
+import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.integrated.IntegratedServer;
@@ -23,13 +26,20 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.DirectionFacingBlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.World;
+import ru.autoschem.builder.InstructionExecutor;
 import ru.autoschem.client.ChatMessages;
+import ru.autoschem.handler.FurnaceHandler;
 import ru.autoschem.log.ErrorLogger;
+import ru.autoschem.movement.MovementHandler;
+import ru.autoschem.safety.SafetyAnalyzer;
 import ru.autoschem.safety.SafetyHandler;
 import ru.autoschem.vsch.Instruction;
 import ru.autoschem.vsch.VschReader;
@@ -47,6 +57,9 @@ public final class BuildController implements AutoCloseable {
         thread.setDaemon(true);
         return thread;
     });
+    private final MovementHandler movement = new MovementHandler();
+    private final InstructionExecutor executor;
+    private final FurnaceHandler furnace;
     private Run current;
 
     public BuildController(MinecraftClient client, SafetyHandler safety, ChatMessages messages,
@@ -56,6 +69,8 @@ public final class BuildController implements AutoCloseable {
         this.messages = messages;
         this.errors = errors;
         this.store = store;
+        this.executor = new InstructionExecutor(client, movement);
+        this.furnace = new FurnaceHandler(client, movement);
     }
 
     public int start() {
@@ -216,46 +231,35 @@ public final class BuildController implements AutoCloseable {
         BlockPos target = run.origin;
         try {
             target = position(run.origin, instruction);
-            boolean occupied;
-            synchronized (run.lock) {
-                if (run.cancelled) {
-                    return;
+            
+            // SafetyAnalyzer check
+            if (!SafetyAnalyzer.isSafe(client, target)) {
+                client.player.sendMessage(
+                        net.minecraft.text.Text.literal("[AutoSchem] Опасность! Обхожу препятствие.")
+                                .formatted(net.minecraft.util.Formatting.RED),
+                        false);
+                synchronized (run.lock) {
+                    run.index++;
+                    run.delay = Math.max(0, instruction.delay() - 1);
+                    run.inFlight = false;
                 }
-                ServerWorld world = getWorld(run);
-                ServerPlayerEntity player = run.server.getPlayerManager().getPlayer(run.playerId);
-                BlockState state = instruction.action() == Instruction.Action.BREAK
-                        ? Blocks.AIR.getDefaultState() : run.states.get(instruction.blockState());
-                if (state == null) {
-                    throw new IOException("Не найдено состояние блока: " + instruction.blockState());
-                }
-                if (!world.isInBuildLimit(target) || !world.getWorldBorder().contains(target)) {
-                    throw new IOException("Инструкция вне границ мира: " + target);
-                }
-                boolean needsChange = !world.getBlockState(target).equals(state);
-                occupied = needsChange && !state.isAir() && player.getBoundingBox().intersects(new Box(target));
-                if (!occupied && needsChange
-                        && !world.setBlockState(target, state, Block.NOTIFY_LISTENERS | Block.FORCE_STATE)) {
-                    throw new IOException("Не удалось изменить блок: " + target);
-                }
+                return;
             }
-            BlockPos appliedAt = target;
-            client.execute(() -> {
-                if (!isCurrent(run)) {
-                    return;
-                }
-                if (occupied) {
-                    cancelCurrent();
-                    messages.send(client, "Строительство остановлено: отойдите от блока "
-                            + appliedAt.getX() + ", " + appliedAt.getY() + ", " + appliedAt.getZ() + ".", Formatting.RED);
-                    return;
-                }
+
+            // Move to target
+            movement.moveTo(client.player, target);
+
+            // Execute instruction using packets
+            executor.execute(instruction, run.origin);
+
+            synchronized (run.lock) {
                 run.index++;
                 run.delay = Math.max(0, instruction.delay() - 1);
                 run.inFlight = false;
                 if (run.index >= run.instructions.size()) {
                     finish(run);
                 }
-            });
+            }
         } catch (Exception exception) {
             BlockPos failedAt = target;
             client.execute(() -> fail(run, exception, failedAt));
