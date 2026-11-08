@@ -2,12 +2,12 @@ package ru.autoschem.builder;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerActionC2SPacket;
-import net.minecraft.client.network.PlayerInteractBlockC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
 import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.DirectionFacingBlockHitResult;
+import net.minecraft.util.hit.BlockRayTraceResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
@@ -54,7 +54,7 @@ public final class InstructionExecutor {
         } else if (instruction.action() == Instruction.Action.PLACE) {
             // Place block using PlayerInteractBlockC2SPacket
             // Minecraft 1.21.x uses PlayerInteractBlockC2SPacket
-            BlockHitResult hit = new DirectionFacingBlockHitResult(
+            BlockHitResult hit = new BlockRayTraceResult(
                     new Vec3d(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5),
                     Direction.UP,
                     target,
